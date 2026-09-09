@@ -227,4 +227,6 @@ This project demonstrates how a trained machine learning model can be integrated
 
 ---
 
+### Live Project Demo link:https://jaishree-jusy-bitcoin-price-prediction-app-fenfev.streamlit.app/
+
 ⭐ If you find this project interesting, consider giving the repository a star!
