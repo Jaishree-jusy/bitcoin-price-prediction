@@ -1,212 +1,220 @@
 import streamlit as st
-import numpy as np
 import pickle
+import numpy as np
+import time
 import plotly.graph_objects as go
 
-# --------------------------------------------------
-# PAGE CONFIGURATION
-# --------------------------------------------------
+# -------------------- PAGE SETTINGS --------------------
+st.set_page_config(page_title="Bitcoin Dashboard", layout="wide")
 
-st.set_page_config(
-    page_title="Bitcoin Price Prediction",
-    page_icon="₿",
-    layout="wide"
-)
+# -------------------- UI STYLE --------------------
+st.markdown("""
+<style>
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #e0f2fe, #f8fafc) !important;
+}
 
-# --------------------------------------------------
-# LOAD MODEL
-# --------------------------------------------------
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    border-left: 6px solid #2563eb;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
 
-@st.cache_resource
-def load_model():
-    with open("bitcoin_model.pkl", "rb") as file:
-        return pickle.load(file)
+.stButton>button {
+    background: linear-gradient(90deg, #7c3aed, #a855f7) !important;
+    color: white !important;
+    border-radius: 10px;
+    height: 3em;
+    border: none;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# -------------------- LOAD MODEL --------------------
+model = pickle.load(open("bitcoin_model.pkl", "rb"))
+
+# -------------------- HEADER --------------------
+st.title("💰 Bitcoin Price Prediction Dashboard")
+st.caption("Interactive ML-based system for predicting Bitcoin prices")
+
+st.markdown("---")
+
+# -------------------- SAMPLE BUTTON --------------------
+if st.button("🔄 Use Sample Market Data"):
+    st.session_state.open_p = 45000.0
+    st.session_state.high_p = 46000.0
+    st.session_state.low_p = 44000.0
+    st.session_state.close_p = 45500.0
+    st.session_state.volume = 35000.0
 
 
-model = load_model()
+# -------------------- INPUT --------------------
+st.markdown('<div class="card">', unsafe_allow_html=True)
 
-# --------------------------------------------------
-# TITLE
-# --------------------------------------------------
-
-st.title("₿ Bitcoin Price Prediction")
-st.markdown(
-    "### Predict the next Bitcoin closing price using Machine Learning"
-)
-
-st.divider()
-
-# --------------------------------------------------
-# INPUT SECTION
-# --------------------------------------------------
-
-st.subheader("📊 Enter Bitcoin Market Data")
+st.markdown("## 📥 Enter Market Data")
 
 col1, col2 = st.columns(2)
 
 with col1:
     open_p = st.number_input(
-        "Open Price",
+        "📂 Open Price (₹)",
         min_value=0.0,
-        value=50000.0,
-        step=100.0
-    )
-
-    high_p = st.number_input(
-        "High Price",
-        min_value=0.0,
-        value=51000.0,
-        step=100.0
+        step=100.0,
+        key="open_p"
     )
 
     low_p = st.number_input(
-        "Low Price",
+        "📉 Low Price (₹)",
         min_value=0.0,
-        value=49000.0,
-        step=100.0
-    )
-
-with col2:
-    close_p = st.number_input(
-        "Current Close Price",
-        min_value=0.0,
-        value=50500.0,
-        step=100.0
+        step=100.0,
+        key="low_p"
     )
 
     volume = st.number_input(
-        "Trading Volume",
+        "📊 Volume",
         min_value=0.0,
-        value=1000000.0,
-        step=10000.0
+        step=1000.0,
+        key="volume"
     )
 
-st.divider()
+with col2:
+    high_p = st.number_input(
+        "📈 High Price (₹)",
+        min_value=0.0,
+        step=100.0,
+        key="high_p"
+    )
 
-# --------------------------------------------------
-# PREDICTION
-# --------------------------------------------------
+    close_p = st.number_input(
+        "🔒 Close Price (₹)",
+        min_value=0.0,
+        step=100.0,
+        key="close_p"
+    )
 
-if st.button("🚀 Predict Bitcoin Price", use_container_width=True):
+st.markdown('</div>', unsafe_allow_html=True)
 
-    # Basic validation
+
+# -------------------- PREDICT --------------------
+if st.button("🚀 Predict"):
+
     if open_p == 0 or high_p == 0 or low_p == 0 or close_p == 0 or volume == 0:
-        st.warning("⚠️ Please enter all values.")
+        st.warning("⚠️ Please enter all values")
 
     elif high_p < low_p:
-        st.error("❌ High Price must be greater than Low Price.")
+        st.error("❌ High must be greater than Low")
 
     elif close_p < low_p or close_p > high_p:
-        st.error("❌ Current Close Price must be between Low Price and High Price.")
+        st.error("❌ Close must be between Low and High")
 
     else:
 
-        # --------------------------------------------------
-        # MODEL INPUT
-        # --------------------------------------------------
-        # The trained model expects ONLY these 4 features:
+        # IMPORTANT:
+        # The trained model expects ONLY 4 features:
         # Open, High, Low, Volume
         #
-        # Close Price is NOT passed to the model.
-        # It is only used for comparison/trend display.
+        # Close Price is kept in the UI for comparison
+        # and trend calculation, but is NOT sent to the model.
 
-        data = np.array([
-            [open_p, high_p, low_p, volume]
-        ])
+        data = np.array([[open_p, high_p, low_p, volume]])
 
-        # Make prediction
         prediction = model.predict(data)[0]
 
-        # --------------------------------------------------
-        # RESULT
-        # --------------------------------------------------
-
-        st.success("✅ Prediction generated successfully!")
-
-        st.subheader("💰 Predicted Bitcoin Closing Price")
-
-        st.metric(
-            label="Predicted Price",
-            value=f"${prediction:,.2f}"
-        )
-
-        # --------------------------------------------------
-        # PRICE COMPARISON
-        # --------------------------------------------------
-
-        difference = prediction - close_p
-
-        if difference > 0:
-            st.success(
-                f"📈 Bitcoin may increase by approximately "
-                f"${difference:,.2f}"
-            )
-
-        elif difference < 0:
-            st.warning(
-                f"📉 Bitcoin may decrease by approximately "
-                f"${abs(difference):,.2f}"
-            )
-
+        # -------------------- TREND --------------------
+        if prediction > close_p:
+            trend = "📈 UPWARD TREND"
+            color = "green"
+            box_color = "#22c55e"
         else:
-            st.info("➡️ Bitcoin price may remain approximately the same.")
+            trend = "📉 DOWNWARD TREND"
+            color = "red"
+            box_color = "#ef4444"
 
-        # --------------------------------------------------
-        # CHART
-        # --------------------------------------------------
+        # -------------------- RESULT --------------------
+        st.markdown('<div class="card">', unsafe_allow_html=True)
 
-        st.subheader("📈 Price Comparison")
+        st.markdown("## 💡 Prediction Result")
+
+        placeholder = st.empty()
+
+        # Safe animation step
+        step = max(1, int(prediction / 40))
+
+        for i in range(0, int(prediction), step):
+            placeholder.markdown(f"""
+            <div style="
+                background:{box_color};
+                padding:20px;
+                border-radius:12px;
+                color:white;
+                text-align:center;
+                font-size:22px;
+                font-weight:bold;">
+                💰 Predicted Price: ₹ {i:,.0f}
+            </div>
+            """, unsafe_allow_html=True)
+
+            time.sleep(0.01)
+
+        placeholder.markdown(f"""
+        <div style="
+            background:{box_color};
+            padding:20px;
+            border-radius:12px;
+            color:white;
+            text-align:center;
+            font-size:22px;
+            font-weight:bold;">
+            💰 Predicted Price: ₹ {prediction:,.2f}
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"### Trend: :{color}[{trend}]")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # -------------------- GRAPH --------------------
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+
+        st.markdown("## 📊 Price Visualization")
+
+        labels = ["Open", "High", "Low", "Close", "Predicted"]
+        values = [open_p, high_p, low_p, close_p, prediction]
 
         fig = go.Figure()
 
-        fig.add_trace(
-            go.Bar(
-                x=["Current Close", "Predicted Close"],
-                y=[close_p, prediction],
-                text=[
-                    f"${close_p:,.2f}",
-                    f"${prediction:,.2f}"
-                ],
-                textposition="auto"
-            )
+        fig.add_trace(go.Scatter(
+            x=labels,
+            y=values,
+            mode='lines+markers'
+        ))
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # -------------------- SUMMARY --------------------
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+
+        st.markdown("## 📌 Summary Dashboard")
+
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric("📂 Open", f"₹ {open_p:,.0f}")
+        c2.metric("📈 High", f"₹ {high_p:,.0f}")
+        c3.metric("📉 Low", f"₹ {low_p:,.0f}")
+
+        c4, c5, c6 = st.columns(3)
+
+        c4.metric("🔒 Close", f"₹ {close_p:,.0f}")
+        c5.metric("📊 Volume", f"{volume:,.0f}")
+        c6.metric("💡 Predicted", f"₹ {prediction:,.0f}")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.caption(
+            "⚠️ Prediction is based on historical data and may vary due to market volatility."
         )
-
-        fig.update_layout(
-            title="Current vs Predicted Bitcoin Price",
-            xaxis_title="Price Type",
-            yaxis_title="Bitcoin Price (USD)",
-            template="plotly_white"
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-
-# --------------------------------------------------
-# MODEL INFORMATION
-# --------------------------------------------------
-
-st.divider()
-
-st.subheader("🤖 About the Model")
-
-st.write(
-    """
-    This application uses a Machine Learning model trained on Bitcoin
-    market data to predict the next closing price.
-
-    **Features used by the deployed model:**
-    - Open Price
-    - High Price
-    - Low Price
-    - Trading Volume
-
-    The Current Close Price is displayed for comparison with the prediction.
-    """
-)
-
-st.info(
-    "⚠️ This prediction is for educational/project purposes and should not "
-    "be considered financial advice."
-)
